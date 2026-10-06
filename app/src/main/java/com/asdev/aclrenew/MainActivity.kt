@@ -3,6 +3,8 @@ package com.asdev.aclrenew
 import android.app.AlertDialog
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -35,6 +37,9 @@ class MainActivity : android.app.Activity() {
 
     private lateinit var container: LinearLayout
     private lateinit var subtitle: TextView
+    private lateinit var accountsCount: TextView
+    private lateinit var activeCount: TextView
+    private lateinit var expiringCount: TextView
 
     private val prefs by lazy {
         getSharedPreferences("acl", Context.MODE_PRIVATE)
@@ -42,15 +47,31 @@ class MainActivity : android.app.Activity() {
 
     private var accounts: List<Account> = emptyList()
 
+    companion object {
+        private const val BG = 0xFF0B1020.toInt()
+        private const val CARD = 0xFF141B2E.toInt()
+        private const val CARD_2 = 0xFF192238.toInt()
+        private const val WHITE = 0xFFF5F7FF.toInt()
+        private const val MUTED = 0xFF8F9BB3.toInt()
+        private const val BLUE = 0xFF5B8CFF.toInt()
+        private const val GREEN = 0xFF38D996.toInt()
+        private const val ORANGE = 0xFFFFB454.toInt()
+        private const val RED = 0xFFFF5C6C.toInt()
+    }
+
     private val ticker = object : Runnable {
         override fun run() {
             redrawCountdownsOnly()
+            updateStats()
             handler.postDelayed(this, 1000)
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        window.statusBarColor = BG
+        window.navigationBarColor = BG
 
         setContentView(buildUi())
 
@@ -64,13 +85,24 @@ class MainActivity : android.app.Activity() {
         super.onDestroy()
     }
 
+    // =========================================================
+    // MAIN UI
+    // =========================================================
+
     private fun buildUi(): View {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(245, 247, 251))
-            setPadding(18.dp(), 18.dp(), 18.dp(), 18.dp())
+            setBackgroundColor(BG)
+            setPadding(
+                18.dp(),
+                18.dp(),
+                18.dp(),
+                0
+            )
         }
+
+        // ---------------- HEADER ----------------
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -79,6 +111,7 @@ class MainActivity : android.app.Activity() {
 
         val titleBox = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+
             layoutParams = LinearLayout.LayoutParams(
                 0,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -87,46 +120,133 @@ class MainActivity : android.app.Activity() {
         }
 
         val title = TextView(this).apply {
-            text = "ACLClouds Auto Renew"
-            textSize = 22f
-            setTextColor(Color.rgb(24, 32, 51))
-            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            text = "ACLClouds"
+            textSize = 27f
+            setTextColor(WHITE)
+            typeface = Typeface.DEFAULT_BOLD
         }
 
         subtitle = TextView(this).apply {
-            text = "5-account mobile dashboard"
+            text = "Auto Renew Dashboard"
             textSize = 13f
-            setTextColor(Color.rgb(105, 115, 134))
+            setTextColor(MUTED)
+            setPadding(0, 3.dp(), 0, 0)
         }
 
         titleBox.addView(title)
         titleBox.addView(subtitle)
 
-        val refresh = Button(this).apply {
+        val refresh = iconButton("↻")
+
+        refresh.setOnClickListener {
+            loadAccounts()
+        }
+
+        header.addView(titleBox)
+        header.addView(refresh)
+
+        root.addView(header)
+
+        // ---------------- WELCOME ----------------
+
+        val welcome = TextView(this).apply {
+            text = "Your services at a glance"
+            textSize = 15f
+            setTextColor(WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+
+            setPadding(
+                0,
+                25.dp(),
+                0,
+                12.dp()
+            )
+        }
+
+        root.addView(welcome)
+
+        // ---------------- STATS ----------------
+
+        val stats = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        accountsCount = statCard(
+            stats,
+            "ACCOUNTS",
+            "0"
+        )
+
+        activeCount = statCard(
+            stats,
+            "ACTIVE",
+            "0"
+        )
+
+        expiringCount = statCard(
+            stats,
+            "EXPIRING",
+            "0"
+        )
+
+        root.addView(stats)
+
+        // ---------------- SECTION TITLE ----------------
+
+        val servicesTitle = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+
+            setPadding(
+                0,
+                24.dp(),
+                0,
+                10.dp()
+            )
+        }
+
+        val services = TextView(this).apply {
+            text = "YOUR SERVICES"
+            textSize = 13f
+            setTextColor(MUTED)
+            typeface = Typeface.DEFAULT_BOLD
+
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val refreshText = TextView(this).apply {
             text = "Refresh"
+            textSize = 12f
+            setTextColor(BLUE)
+
             setOnClickListener {
                 loadAccounts()
             }
         }
 
-        val settings = Button(this).apply {
-            text = "Settings"
-            setOnClickListener {
-                showSettings()
-            }
+        servicesTitle.addView(services)
+        servicesTitle.addView(refreshText)
+
+        root.addView(servicesTitle)
+
+        // ---------------- SCROLL ----------------
+
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
         }
-
-        header.addView(titleBox)
-        header.addView(refresh)
-        header.addView(settings)
-
-        root.addView(header)
-
-        val scroll = ScrollView(this)
 
         container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(0, 12.dp(), 0, 30.dp())
+            setPadding(
+                0,
+                0,
+                0,
+                25.dp()
+            )
         }
 
         scroll.addView(container)
@@ -140,53 +260,624 @@ class MainActivity : android.app.Activity() {
             )
         )
 
+        // ---------------- BOTTOM BAR ----------------
+
+        val bottom = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(
+                0,
+                8.dp(),
+                0,
+                10.dp()
+            )
+
+            background = rounded(
+                CARD,
+                20.dp()
+            )
+        }
+
+        bottom.addView(
+            bottomItem("⌂", "Dashboard", true)
+        )
+
+        bottom.addView(
+            bottomItem("☷", "Accounts", false)
+        )
+
+        bottom.addView(
+            bottomItem("⚙", "Settings", false)
+        )
+
+        root.addView(
+            bottom,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                65.dp()
+            )
+        )
+
         return root
     }
 
-    private fun showSettings() {
+    // =========================================================
+    // STATS
+    // =========================================================
 
-        val input = EditText(this).apply {
-            hint = "https://your-backend.example.com"
-            setText(
-                prefs.getString(
-                    "baseUrl",
-                    "http://10.0.2.2:3000"
-                )
-            )
-            selectAll()
-        }
+    private fun statCard(
+        parent: LinearLayout,
+        label: String,
+        value: String
+    ): TextView {
 
         val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(24.dp(), 4.dp(), 24.dp(), 0)
-            addView(input)
+            gravity = Gravity.CENTER_VERTICAL
+
+            setPadding(
+                13.dp(),
+                12.dp(),
+                13.dp(),
+                12.dp()
+            )
+
+            background = rounded(
+                CARD,
+                16.dp()
+            )
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Backend URL")
-            .setMessage(
-                "The Android app talks to your secure backend. " +
-                        "Keep ACLClouds passwords on the backend, not in the phone app."
-            )
-            .setView(box)
-            .setPositiveButton("Save") { _, _ ->
+        val lp = LinearLayout.LayoutParams(
+            0,
+            78.dp(),
+            1f
+        )
 
-                prefs.edit()
-                    .putString(
-                        "baseUrl",
-                        input.text.toString().trim().trimEnd('/')
-                    )
-                    .apply()
+        lp.setMargins(
+            0,
+            0,
+            7.dp(),
+            0
+        )
 
-                loadAccounts()
-            }
-            .setNegativeButton("Cancel", null)
-            .show()
+        parent.addView(box, lp)
+
+        val number = TextView(this).apply {
+            text = value
+            textSize = 22f
+            setTextColor(WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        val text = TextView(this).apply {
+            text = label
+            textSize = 9f
+            setTextColor(MUTED)
+            setPadding(0, 2.dp(), 0, 0)
+        }
+
+        box.addView(number)
+        box.addView(text)
+
+        return number
     }
+
+    // =========================================================
+    // ACCOUNT CARD
+    // =========================================================
+
+    private fun accountCard(a: Account): View {
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+
+            setPadding(
+                17.dp(),
+                17.dp(),
+                17.dp(),
+                17.dp()
+            )
+
+            background = rounded(
+                CARD,
+                20.dp()
+            )
+
+            elevation = 2f
+        }
+
+        val lp = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+
+        lp.setMargins(
+            0,
+            0,
+            0,
+            13.dp()
+        )
+
+        card.layoutParams = lp
+
+        // ---------------- TOP ----------------
+
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val avatar = TextView(this).apply {
+            text = accountNumber(a)
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+
+            background = rounded(
+                BLUE,
+                12.dp()
+            )
+
+            layoutParams = LinearLayout.LayoutParams(
+                42.dp(),
+                42.dp()
+            )
+        }
+
+        top.addView(avatar)
+
+        val identity = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+
+            setPadding(
+                12.dp(),
+                0,
+                8.dp(),
+                0
+            )
+
+            layoutParams = LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        }
+
+        val name = TextView(this).apply {
+            text = a.name.ifBlank {
+                "Account ${accountNumber(a)}"
+            }
+
+            textSize = 16f
+            setTextColor(WHITE)
+            typeface = Typeface.DEFAULT_BOLD
+        }
+
+        val email = TextView(this).apply {
+            text = a.email.ifBlank {
+                "No email"
+            }
+
+            textSize = 11f
+            setTextColor(MUTED)
+
+            setPadding(
+                0,
+                3.dp(),
+                0,
+                0
+            )
+        }
+
+        identity.addView(name)
+        identity.addView(email)
+
+        top.addView(identity)
+
+        val status = statusBadge(a)
+
+        top.addView(status)
+
+        card.addView(top)
+
+        // ---------------- SERVICE ----------------
+
+        val service = TextView(this).apply {
+            text = "SERVICE  •  ${
+                a.serviceId.ifBlank { "—" }
+            }"
+
+            textSize = 10f
+            setTextColor(MUTED)
+
+            setPadding(
+                0,
+                14.dp(),
+                0,
+                0
+            )
+        }
+
+        card.addView(service)
+
+        // ---------------- COUNTDOWN ----------------
+
+        val countdown = TextView(this).apply {
+
+            tag = "countdown"
+
+            text = expiryText(a.expiry)
+
+            textSize = 25f
+
+            setTextColor(
+                countdownColor(a.expiry)
+            )
+
+            typeface = Typeface.DEFAULT_BOLD
+
+            setPadding(
+                0,
+                10.dp(),
+                0,
+                0
+            )
+        }
+
+        card.addView(countdown)
+
+        val remainingLabel = TextView(this).apply {
+            text = "TIME REMAINING"
+            textSize = 9f
+            setTextColor(MUTED)
+        }
+
+        card.addView(remainingLabel)
+
+        // ---------------- INFO ----------------
+
+        val info = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+
+            setPadding(
+                0,
+                13.dp(),
+                0,
+                13.dp()
+            )
+        }
+
+        val expiry = smallInfo(
+            "EXPIRY",
+            formatDate(a.expiry)
+        )
+
+        val check = smallInfo(
+            "LAST CHECK",
+            formatDate(a.lastCheck)
+        )
+
+        info.addView(
+            expiry,
+            LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        info.addView(
+            check,
+            LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+        )
+
+        card.addView(info)
+
+        // ---------------- ERROR ----------------
+
+        if (!a.lastError.isNullOrBlank()) {
+
+            val error = TextView(this).apply {
+                text = "⚠ ${a.lastError}"
+                textSize = 11f
+                setTextColor(RED)
+
+                setPadding(
+                    10.dp(),
+                    8.dp(),
+                    10.dp(),
+                    8.dp()
+                )
+
+                background = rounded(
+                    0x22FF5C6C,
+                    10.dp()
+                )
+            }
+
+            card.addView(error)
+
+            space(card, 10)
+        }
+
+        // ---------------- BUTTONS ----------------
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+
+        val checkButton = actionButton(
+            "CHECK NOW",
+            BLUE
+        )
+
+        checkButton.setOnClickListener {
+            manualCheck(a.id)
+        }
+
+        val renewButton = actionButton(
+            "RENEW",
+            GREEN
+        )
+
+        renewButton.setOnClickListener {
+            Toast.makeText(
+                this,
+                "Renew integration will be connected after the ACLClouds Renew flow is confirmed.",
+                Toast.LENGTH_LONG
+            ).show()
+        }
+
+        actions.addView(
+            checkButton,
+            LinearLayout.LayoutParams(
+                0,
+                45.dp(),
+                1f
+            ).apply {
+                setMargins(
+                    0,
+                    0,
+                    5.dp(),
+                    0
+                )
+            }
+        )
+
+        actions.addView(
+            renewButton,
+            LinearLayout.LayoutParams(
+                0,
+                45.dp(),
+                1f
+            ).apply {
+                setMargins(
+                    5.dp(),
+                    0,
+                    0,
+                    0
+                )
+            }
+        )
+
+        card.addView(actions)
+
+        return card
+    }
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private fun statusBadge(a: Account): TextView {
+
+        val statusText =
+            when {
+                !a.lastError.isNullOrBlank() ->
+                    "ERROR"
+
+                a.expiry != null &&
+                        a.expiry - System.currentTimeMillis()
+                        <= 2 * 24 * 60 * 60 * 1000L ->
+                    "EXPIRING"
+
+                else ->
+                    "ACTIVE"
+            }
+
+        val color =
+            when (statusText) {
+                "ERROR" -> RED
+                "EXPIRING" -> ORANGE
+                else -> GREEN
+            }
+
+        return TextView(this).apply {
+            text = statusText
+            textSize = 9f
+            gravity = Gravity.CENTER
+            setTextColor(color)
+            typeface = Typeface.DEFAULT_BOLD
+
+            setPadding(
+                9.dp(),
+                6.dp(),
+                9.dp(),
+                6.dp()
+            )
+
+            background = rounded(
+                color and 0x00FFFFFF or 0x22000000,
+                20.dp()
+            )
+        }
+    }
+
+    // =========================================================
+    // SMALL INFO
+    // =========================================================
+
+    private fun smallInfo(
+        title: String,
+        value: String
+    ): LinearLayout {
+
+        return LinearLayout(this).apply {
+
+            orientation = LinearLayout.VERTICAL
+
+            val t = TextView(this@MainActivity).apply {
+                text = title
+                textSize = 8f
+                setTextColor(MUTED)
+            }
+
+            val v = TextView(this@MainActivity).apply {
+                text = value
+                textSize = 11f
+                setTextColor(WHITE)
+                typeface = Typeface.DEFAULT_BOLD
+
+                setPadding(
+                    0,
+                    3.dp(),
+                    0,
+                    0
+                )
+            }
+
+            addView(t)
+            addView(v)
+        }
+    }
+
+    // =========================================================
+    // BOTTOM NAV
+    // =========================================================
+
+    private fun bottomItem(
+        icon: String,
+        label: String,
+        selected: Boolean
+    ): LinearLayout {
+
+        val item = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+
+            setPadding(
+                20.dp(),
+                5.dp(),
+                20.dp(),
+                5.dp()
+            )
+        }
+
+        val iconView = TextView(this).apply {
+            text = icon
+            textSize = 21f
+            gravity = Gravity.CENTER
+
+            setTextColor(
+                if (selected) BLUE else MUTED
+            )
+        }
+
+        val text = TextView(this).apply {
+            text = label
+            textSize = 9f
+            gravity = Gravity.CENTER
+
+            setTextColor(
+                if (selected) WHITE else MUTED
+            )
+
+            setPadding(
+                0,
+                2.dp(),
+                0,
+                0
+            )
+        }
+
+        item.addView(iconView)
+        item.addView(text)
+
+        return item
+    }
+
+    // =========================================================
+    // BUTTONS
+    // =========================================================
+
+    private fun actionButton(
+        text: String,
+        color: Int
+    ): TextView {
+
+        return TextView(this).apply {
+
+            this.text = text
+
+            gravity = Gravity.CENTER
+
+            textSize = 11f
+
+            setTextColor(
+                if (color == GREEN)
+                    BG
+                else
+                    WHITE
+            )
+
+            typeface = Typeface.DEFAULT_BOLD
+
+            background = rounded(
+                color,
+                13.dp()
+            )
+        }
+    }
+
+    private fun iconButton(
+        icon: String
+    ): TextView {
+
+        return TextView(this).apply {
+
+            text = icon
+
+            textSize = 25f
+
+            gravity = Gravity.CENTER
+
+            setTextColor(WHITE)
+
+            background = rounded(
+                CARD,
+                14.dp()
+            )
+
+            layoutParams = LinearLayout.LayoutParams(
+                48.dp(),
+                48.dp()
+            )
+        }
+    }
+
+    // =========================================================
+    // DATA
+    // =========================================================
 
     private fun loadAccounts() {
 
-        renderMessage("Loading accounts...")
+        renderMessage("Loading services...")
 
         val base = prefs.getString(
             "baseUrl",
@@ -197,28 +888,35 @@ class MainActivity : android.app.Activity() {
 
             try {
 
-                val json = httpGet("$base/api/accounts")
-                val parsed = parseAccounts(json)
+                val json =
+                    httpGet("$base/api/accounts")
+
+                val parsed =
+                    parseAccounts(json)
 
                 runOnUiThread {
 
                     accounts = parsed
 
                     subtitle.text =
-                        "${parsed.size} accounts • Backend connected"
+                        "${parsed.size} services connected"
 
                     renderAll()
+                    updateStats()
                 }
 
             } catch (e: Exception) {
 
                 runOnUiThread {
 
-                    subtitle.text = "Backend connection failed"
+                    subtitle.text =
+                        "Connection unavailable"
 
                     renderMessage(
-                        "Could not load accounts.\n${e.message}"
+                        "Unable to load services.\n\n${e.message}"
                     )
+
+                    updateStats()
                 }
             }
         }
@@ -233,7 +931,7 @@ class MainActivity : android.app.Activity() {
 
         Toast.makeText(
             this,
-            "Checking account $id...",
+            "Checking account...",
             Toast.LENGTH_SHORT
         ).show()
 
@@ -241,7 +939,9 @@ class MainActivity : android.app.Activity() {
 
             try {
 
-                httpPost("$base/api/accounts/$id/check")
+                httpPost(
+                    "$base/api/accounts/$id/check"
+                )
 
                 runOnUiThread {
                     loadAccounts()
@@ -261,6 +961,10 @@ class MainActivity : android.app.Activity() {
         }
     }
 
+    // =========================================================
+    // RENDER
+    // =========================================================
+
     private fun renderAll() {
 
         container.removeAllViews()
@@ -268,275 +972,248 @@ class MainActivity : android.app.Activity() {
         if (accounts.isEmpty()) {
 
             renderMessage(
-                "No ACLClouds accounts configured yet.\n" +
-                        "Add ACL_1..ACL_5 in the backend .env file."
+                "No services found.\n\nConfigure your ACLClouds accounts first."
             )
 
             return
         }
 
-        accounts.forEach { account ->
-            container.addView(accountCard(account))
+        accounts.forEach {
+            container.addView(
+                accountCard(it)
+            )
         }
     }
 
-    private fun renderMessage(msg: String) {
+    private fun renderMessage(
+        msg: String
+    ) {
 
-        if (!::container.isInitialized) return
+        if (!::container.isInitialized)
+            return
 
         container.removeAllViews()
 
-        val t = TextView(this).apply {
-            text = msg
-            textSize = 16f
-            setTextColor(Color.DKGRAY)
-            setPadding(
-                16.dp(),
-                24.dp(),
-                16.dp(),
-                24.dp()
-            )
-        }
-
-        container.addView(t)
-    }
-
-    private fun accountCard(a: Account): View {
-
-        val card = LinearLayout(this).apply {
-
+        val box = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-
-            setBackgroundColor(Color.WHITE)
-
-            setPadding(
-                18.dp(),
-                18.dp(),
-                18.dp(),
-                18.dp()
-            )
-
-            elevation = 4f
-        }
-
-        val lp = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
-
-            setMargins(
-                0,
-                0,
-                0,
-                16.dp()
-            )
-        }
-
-        card.layoutParams = lp
-
-        val head = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
-        val title = TextView(this).apply {
-
-            text = a.name
-            textSize = 19f
-
-            setTextColor(
-                Color.rgb(24, 32, 51)
-            )
-
-            setTypeface(
-                typeface,
-                android.graphics.Typeface.BOLD
-            )
-        }
-
-        head.addView(
-            title,
-            LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-        )
-
-        val status = TextView(this).apply {
-
-            text = a.status
-            textSize = 12f
+            gravity = Gravity.CENTER
 
             setPadding(
-                10.dp(),
-                6.dp(),
-                10.dp(),
-                6.dp()
+                25.dp(),
+                70.dp(),
+                25.dp(),
+                70.dp()
             )
 
-            setTextColor(
-                if (a.status.contains("Error", true))
-                    Color.rgb(180, 35, 24)
-                else
-                    Color.rgb(0, 120, 70)
-            )
-
-            setBackgroundColor(
-                Color.rgb(238, 242, 247)
+            background = rounded(
+                CARD,
+                20.dp()
             )
         }
 
-        head.addView(status)
+        val icon = TextView(this).apply {
+            text = "☁"
+            textSize = 42f
+            gravity = Gravity.CENTER
+            setTextColor(BLUE)
+        }
 
-        card.addView(head)
-
-        card.addView(label(a.email))
-
-        card.addView(
-            label(
-                "Service ID: ${
-                    a.serviceId.ifBlank { "—" }
-                }"
-            )
-        )
-
-        val countdown = TextView(this).apply {
-
-            tag = "countdown"
-
-            text = expiryText(a.expiry)
-
-            textSize = 27f
-
-            setTextColor(
-                Color.rgb(20, 45, 99)
-            )
-
-            setTypeface(
-                typeface,
-                android.graphics.Typeface.BOLD
-            )
-
+        val message = TextView(this).apply {
+            text = msg
+            textSize = 14f
+            gravity = Gravity.CENTER
+            setTextColor(MUTED)
             setPadding(
                 0,
-                14.dp(),
+                12.dp(),
                 0,
-                10.dp()
+                0
             )
         }
 
-        card.addView(countdown)
+        box.addView(icon)
+        box.addView(message)
 
-        card.addView(
-            label(
-                "Expiry: ${formatDate(a.expiry)}"
-            )
-        )
-
-        card.addView(
-            label(
-                "Last check: ${formatDate(a.lastCheck)}"
-            )
-        )
-
-        if (!a.lastError.isNullOrBlank()) {
-
-            val err = label(
-                "⚠ ${a.lastError}"
-            ).apply {
-
-                setTextColor(
-                    Color.rgb(180, 35, 24)
-                )
-            }
-
-            card.addView(err)
-        }
-
-        val check = Button(this).apply {
-
-            text = "Check now"
-
-            setOnClickListener {
-                manualCheck(a.id)
-            }
-        }
-
-        card.addView(check)
-
-        return card
+        container.addView(box)
     }
+
+    // =========================================================
+    // COUNTDOWN
+    // =========================================================
 
     private fun redrawCountdownsOnly() {
 
-        if (!::container.isInitialized) return
+        if (!::container.isInitialized)
+            return
 
         for (i in 0 until container.childCount) {
 
             val card =
-                container.getChildAt(i) as? LinearLayout
+                container.getChildAt(i)
+                    as? LinearLayout
                     ?: continue
 
             val countdown =
-                card.findViewWithTag<TextView>("countdown")
-                    ?: continue
+                card.findViewWithTag<TextView>(
+                    "countdown"
+                ) ?: continue
 
-            val a =
+            val account =
                 accounts.getOrNull(i)
                     ?: continue
 
-            countdown.text = expiryText(a.expiry)
+            countdown.text =
+                expiryText(account.expiry)
+
+            countdown.setTextColor(
+                countdownColor(account.expiry)
+            )
         }
     }
 
-    private fun expiryText(expiry: Long?): String {
+    private fun expiryText(
+        expiry: Long?
+    ): String {
 
-        if (expiry == null) {
-            return "⏱ —"
-        }
+        if (expiry == null)
+            return "—"
 
         val diff =
             expiry - System.currentTimeMillis()
 
-        if (diff <= 0) {
-            return "⏱ Expired"
-        }
+        if (diff <= 0)
+            return "EXPIRED"
 
-        val totalSec = diff / 1000
+        val totalSec =
+            diff / 1000
 
-        val days = totalSec / 86400
+        val days =
+            totalSec / 86400
 
-        val hrs =
+        val hours =
             (totalSec % 86400) / 3600
 
-        val min =
+        val minutes =
             (totalSec % 3600) / 60
 
-        val sec =
+        val seconds =
             totalSec % 60
 
-        return "⏱ ${days}d ${hrs}h ${min}m ${sec}s"
+        return "${days}d ${hours}h ${minutes}m ${seconds}s"
     }
 
-    private fun formatDate(time: Long?): String {
+    private fun countdownColor(
+        expiry: Long?
+    ): Int {
 
-        if (time == null) {
-            return "—"
+        if (expiry == null)
+            return MUTED
+
+        val diff =
+            expiry - System.currentTimeMillis()
+
+        return when {
+
+            diff <= 0 ->
+                RED
+
+            diff <= 24 * 60 * 60 * 1000L ->
+                RED
+
+            diff <= 2 * 24 * 60 * 60 * 1000L ->
+                ORANGE
+
+            else ->
+                GREEN
         }
+    }
+
+    // =========================================================
+    // STATS
+    // =========================================================
+
+    private fun updateStats() {
+
+        if (!::accountsCount.isInitialized)
+            return
+
+        val total =
+            accounts.size
+
+        val active =
+            accounts.count {
+                it.lastError.isNullOrBlank() &&
+                        (
+                                it.expiry == null ||
+                                        it.expiry >
+                                        System.currentTimeMillis()
+                                )
+            }
+
+        val expiring =
+            accounts.count {
+
+                val expiry =
+                    it.expiry ?: return@count false
+
+                val diff =
+                    expiry -
+                            System.currentTimeMillis()
+
+                diff > 0 &&
+                        diff <=
+                        2 * 24 * 60 * 60 * 1000L
+            }
+
+        accountsCount.text =
+            total.toString()
+
+        activeCount.text =
+            active.toString()
+
+        expiringCount.text =
+            expiring.toString()
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
+    private fun accountNumber(
+        a: Account
+    ): String {
+
+        val number =
+            a.id.filter {
+                it.isDigit()
+            }.toIntOrNull()
+
+        return if (number != null)
+            number.toString()
+        else
+            "01"
+    }
+
+    private fun formatDate(
+        time: Long?
+    ): String {
+
+        if (time == null)
+            return "—"
 
         return try {
 
             val formatter =
                 SimpleDateFormat(
-                    "yyyy-MM-dd HH:mm:ss",
+                    "dd MMM, HH:mm",
                     Locale.getDefault()
                 )
 
-            formatter.format(Date(time))
+            formatter.format(
+                Date(time)
+            )
 
-        } catch (e: Exception) {
-
+        } catch (_: Exception) {
             "—"
         }
     }
@@ -545,7 +1222,8 @@ class MainActivity : android.app.Activity() {
         json: String
     ): List<Account> {
 
-        val arr = JSONArray(json)
+        val arr =
+            JSONArray(json)
 
         val out =
             ArrayList<Account>()
@@ -560,32 +1238,27 @@ class MainActivity : android.app.Activity() {
             ): Long? {
 
                 val s =
-                    o.optString(name, "")
+                    o.optString(
+                        name,
+                        ""
+                    )
 
                 return s.toLongOrNull()
             }
 
             out.add(
                 Account(
-
                     id = o.optString("id"),
-
                     name = o.optString("name"),
-
                     email = o.optString("email"),
-
                     serviceId =
                         o.optString("serviceId"),
-
                     status =
                         o.optString("status"),
-
                     expiry =
                         longOrNull("expiry"),
-
                     lastCheck =
                         longOrNull("lastCheck"),
-
                     lastError =
                         o.optString("lastError")
                             .ifBlank { null }
@@ -596,13 +1269,18 @@ class MainActivity : android.app.Activity() {
         return out
     }
 
+    // =========================================================
+    // HTTP
+    // =========================================================
+
     private fun httpGet(
         urlString: String
     ): String {
 
         val conn =
             URL(urlString)
-                .openConnection() as HttpURLConnection
+                .openConnection()
+                    as HttpURLConnection
 
         return try {
 
@@ -625,7 +1303,8 @@ class MainActivity : android.app.Activity() {
 
         val conn =
             URL(urlString)
-                .openConnection() as HttpURLConnection
+                .openConnection()
+                    as HttpURLConnection
 
         return try {
 
@@ -652,7 +1331,8 @@ class MainActivity : android.app.Activity() {
         conn: HttpURLConnection
     ): String {
 
-        val code = conn.responseCode
+        val code =
+            conn.responseCode
 
         val stream =
             if (code in 200..299)
@@ -666,32 +1346,49 @@ class MainActivity : android.app.Activity() {
             }
 
         if (code !in 200..299) {
-            error("HTTP $code: $body")
+            error(
+                "HTTP $code: $body"
+            )
         }
 
         return body
     }
 
-    private fun label(
-        text: String
-    ): TextView = TextView(this).apply {
+    // =========================================================
+    // DRAWABLES
+    // =========================================================
 
-        this.text = text
+    private fun rounded(
+        color: Int,
+        radius: Int
+    ): GradientDrawable {
 
-        textSize = 13f
+        return GradientDrawable().apply {
+            setColor(color)
+            cornerRadius =
+                radius.toFloat()
+        }
+    }
 
-        setTextColor(
-            Color.rgb(105, 115, 134)
-        )
+    private fun space(
+        parent: LinearLayout,
+        dp: Int
+    ) {
 
-        setPadding(
-            0,
-            5.dp(),
-            0,
-            0
+        val view = View(this)
+
+        parent.addView(
+            view,
+            LinearLayout.LayoutParams(
+                1,
+                dp.dp()
+            )
         )
     }
 
     private fun Int.dp(): Int =
-        (this * resources.displayMetrics.density).toInt()
+        (
+                this *
+                        resources.displayMetrics.density
+                ).toInt()
 }
